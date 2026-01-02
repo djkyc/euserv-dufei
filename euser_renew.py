@@ -312,6 +312,7 @@ class EUserv:
                     match = re.search(date_pattern, action_text)
                     if match:
                         can_renew_date = match.group(0)
+                        can_renew = datetime.today().date() >= datetime.strptime(can_renew_date, "%Y-%m-%d").date()
 
                 server_id_text = server_id[0].get_text().strip()
                 servers[server_id_text] = can_renew, can_renew_date
@@ -507,7 +508,7 @@ def main():
         message = f"<b>✓ EUserv 检查完成</b>\n\n"
         message += f"时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
         for order_id, can_info in servers.items():
-            message += f"订单id: {order_id},续期时间未到，可续期日期：{can_info[1]}\n"
+            message += f"订单id: {order_id}，续期时间未到，可续期日期：{can_info[1]}\n"
 
         # message += f"检查了 {len(servers)} 台服务器，均无需续期"
         send_telegram(message)
