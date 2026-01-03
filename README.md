@@ -8,8 +8,9 @@ euserv免费机需要每个月续期，本项目实现自动续期，支持githu
 
 ## 2.action部署
 
-2.1  **Fork 本仓库**: 点击右上角的 "Fork" 按钮，将此项目复制到你自己的 GitHub 账户下。
-2.2  **配置 Secrets**: 在你 Fork 的仓库中，进入 `Settings` -> `Secrets and variables` -> `Actions`。点击 `New repository secret`，添加下面第3点的变量：
+ 2.1  **Fork 本仓库**: 点击右上角的 "Fork" 按钮，将此项目复制到你自己的 GitHub 账户下。
+ 
+ 2.2  **配置 Secrets**: 在你 Fork 的仓库中，进入 `Settings` -> `Secrets and variables` -> `Actions`。点击 `New repository secret`，添加下面第3点的变量：
  
 ## 3.配置变量（github action部署，如果自己vps部署直接代码替换参数）
 
