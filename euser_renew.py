@@ -6,6 +6,10 @@ EUserv 自动续期脚本 - 多账号多线程版本
 """
 
 import os
+
+from dotenv import load_dotenv
+load_dotenv('dev.env')  # 正确加载 evn.env
+
 import sys
 import io
 import re
@@ -722,6 +726,7 @@ def main():
     """主函数"""
     logger.info("=" * 60)
     logger.info("EUserv 多账号自动续期脚本（多线程版本）")
+    logger.info("开始办事...")
     logger.info(f"执行时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     logger.info(f"配置账号数: {len(ACCOUNTS)}")
     logger.info(f"最大并发线程: {GLOBAL_CONFIG.max_workers}")
