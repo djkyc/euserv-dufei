@@ -62,6 +62,7 @@ GLOBAL_CONFIG = GlobalConfig(
     max_login_retries=5
 )
 
+
 # 账号列表配置
 ACCOUNTS = [
     AccountConfig(
@@ -293,7 +294,9 @@ class EUserv:
             if 'PIN that you receive via email' in response.text:
                 self.c_id = soup.find("input", {"name": "c_id"})["value"]
                 logger.info("⚠️ 需要 PIN 验证")
-                time.sleep(60)  # 延时60秒，等待邮件到达
+                
+                # 延时60秒等待邮箱
+                time.sleep(60)
                 
                 pin = get_euserv_pin(
                     self.config.email,
@@ -314,7 +317,8 @@ class EUserv:
                 }
                 response = self.session.post(url, headers=headers, data=login_confirm_data)
                 response.raise_for_status()
-                
+
+
             # 检查登录成功
             success_checks = [
                 'Hello' in response.text,
@@ -333,3 +337,6 @@ class EUserv:
         except Exception as e:
             logger.error(f"❌ 登录过程出现异常: {e}", exc_info=True)
             return False
+
+
+# 执行脚本部分保持不变
