@@ -1,3 +1,10 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+EUserv 自动续期脚本 - 多账号多线程版本
+支持多账号配置、多线程并发处理、自动登录、验证码识别、检查到期状态、自动续期并发送 Telegram 通知
+"""
+
 import os
 import sys
 import io
@@ -34,7 +41,7 @@ ocr_lock = threading.Lock()
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.61 Safari/537.36"
 
-# ============== 配置数据类 ==============
+
 class AccountConfig:
     """单个账号配置"""
     def __init__(self, email, password, imap_server='imap.gmail.com', email_password=''):
@@ -53,7 +60,6 @@ class GlobalConfig:
         self.max_login_retries = max_login_retries
 
 
-# ============== 配置区 ==============
 # 全局配置
 GLOBAL_CONFIG = GlobalConfig(
     telegram_bot_token=os.getenv("TG_BOT_TOKEN"),
@@ -72,8 +78,6 @@ ACCOUNTS = [
         email_password=os.getenv("EMAIL_PASS")  # Gmail 应用专用密码
     ),
 ]
-
-# ====================================
 
 
 def recognize_and_calculate(captcha_image_url: str, session: requests.Session) -> Optional[str]:
@@ -317,7 +321,6 @@ class EUserv:
                 }
                 response = self.session.post(url, headers=headers, data=login_confirm_data)
                 response.raise_for_status()
-
 
             # 检查登录成功
             success_checks = [
