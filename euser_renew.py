@@ -1,15 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-EUserv 自动续期脚本 - 多账号多线程版本
-支持多账号配置、多线程并发处理、自动登录、验证码识别、检查到期状态、自动续期并发送 Telegram 通知
-"""
-
 import os
-
-from dotenv import load_dotenv
-load_dotenv('dev.env')  # 本地配置
-
 import sys
 import io
 import re
@@ -45,7 +34,6 @@ ocr_lock = threading.Lock()
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.61 Safari/537.36"
 
-
 # ============== 配置数据类 ==============
 class AccountConfig:
     """单个账号配置"""
@@ -74,7 +62,6 @@ GLOBAL_CONFIG = GlobalConfig(
     max_login_retries=5
 )
 
-
 # 账号列表配置
 ACCOUNTS = [
     AccountConfig(
@@ -83,13 +70,6 @@ ACCOUNTS = [
         imap_server="imap.gmail.com",
         email_password=os.getenv("EMAIL_PASS")  # Gmail 应用专用密码
     ),
-    # 添加更多账号示例：
-    # AccountConfig(
-    #     email="account2@gmail.com",
-    #     password="password2",
-    #     imap_server="imap.gmail.com",
-    #     email_password="app_specific_password2"
-    # ),
 ]
 
 # ====================================
@@ -309,12 +289,11 @@ class EUserv:
                     logger.error("❌ 验证码错误")
                     return False
             
-
             # 处理 PIN 验证
             if 'PIN that you receive via email' in response.text:
                 self.c_id = soup.find("input", {"name": "c_id"})["value"]
                 logger.info("⚠️ 需要 PIN 验证")
-                time.sleep(3)  # 等待邮件到达
+                time.sleep(60)  # 延时60秒，等待邮件到达
                 
                 pin = get_euserv_pin(
                     self.config.email,
@@ -326,7 +305,6 @@ class EUserv:
                     logger.error("❌ 获取 PIN 码失败")
                     return False
                 
-                
                 login_confirm_data = {
                     'pin': pin,
                     'sess_id': sess_id,
@@ -336,8 +314,7 @@ class EUserv:
                 }
                 response = self.session.post(url, headers=headers, data=login_confirm_data)
                 response.raise_for_status()
-
-
+                
             # 检查登录成功
             success_checks = [
                 'Hello' in response.text,
@@ -356,452 +333,3 @@ class EUserv:
         except Exception as e:
             logger.error(f"❌ 登录过程出现异常: {e}", exc_info=True)
             return False
-    
-
-
-    def update_info(self):
-        # 判断当前日期是否为2号或22号，一个月更新两次
-        current_day = datetime.now().day
-        if current_day not in [2, 22]:
-            return
-
-        logger.info(f"更新用户信息...")
-        try:
-            # 更新用户信息，euserv每隔一段时间就需要用户更新信息，每个月2号，22号
-            #1.进入用户界面
-            url = f"https://support.euserv.com/index.iphp?sess_id={self.sess_id}&action=show_customerdata"
-            showinfo_data = {
-                'sess_id': self.sess_id,
-                'action': 'show_customerdata'
-            }
-            headers = {'user-agent': USER_AGENT, 
-                       'host': 'support.euserv.com',
-                       'referer': 'https://support.euserv.com/index.iphp?sess_id={self.sess_id}&subaction=show_kwk_main'
-                       }
-            
-            logger.info(f"进入用户界面...")
-            response = self.session.get(url=url, headers=headers)
-            response.raise_for_status()
-
-            soup = BeautifulSoup(response.text, 'html.parser')
-
-
-            self.c_id = soup.find("input", {"name": "c_id"})["value"]
-            c_att = soup.select_one('#c_att option[selected]').get('value')
-            c_street = soup.find('input', {'name': 'c_street'})['value']
-            c_streetno = soup.find('input', {'name': 'c_streetno'})['value']
-            c_postal = soup.find('input', {'name': 'c_postal'})['value']
-            c_city = soup.find('input', {'name': 'c_city'})['value']
-            c_country = soup.select_one('#c_country option[selected]').get('value')
-            c_phone_country_prefix = soup.find('input', {'name': 'c_phone_country_prefix'})['value']      
-            c_phone_password = soup.find('input', {'name': 'c_phone_password'})['value'] 
-            c_fax_country_prefix = soup.find('input', {'name': 'c_fax_country_prefix'})['value'] 
-            c_tac_date = soup.find('input', {'name': 'c_tac_date'})['value'] 
-            c_website = soup.find('input', {'name': 'c_website'})['value'] 
-            c_firstcontact = soup.select_one('#c_firstcontact option[selected]').get('value')
-            c_emailabo_contract = soup.find('input', {'name': 'c_emailabo_contract'})['value'] 
-            c_emailabo_products = soup.find('input', {'name': 'c_emailabo_products'})['value'] 
-            c_forumnick = soup.find('input', {'name': 'c_forumnick'})['value'] 
-            c_hrno = soup.find('input', {'name': 'c_hrno'})['value'] 
-            c_hrcourt = soup.find('input', {'name': 'c_hrcourt'})['value'] 
-            c_taxid = soup.find('input', {'name': 'c_taxid'})['value'] 
-            c_identifier = soup.find('input', {'name': 'c_identifier'})['value'] 
-            c_birthplace = soup.find('input', {'name': 'c_birthplace'})['value'] 
-            c_country_of_birth = soup.select_one('#c_country_of_birth option[selected]').get('value')
-
-            c_birthdays = soup.find_all('input', {'name': 'c_birthday[]'})
-            c_birthday_value = []
-            for c_birthday in c_birthdays:
-                if c_birthday:
-                    c_birthday_value.append(c_birthday['value'].strip())
-                else:
-                    c_birthday_value.append('')
-
-            c_phones = soup.find_all('input', {'name': 'c_phone[]'})
-            c_phone_value = []
-            for c_phone in c_phones:
-                if c_phone:
-                    c_phone_value.append(c_phone['value'].strip())
-                else:
-                    c_phone_value.append('')
-
-            c_faxs = soup.find_all('input', {'name': 'c_fax[]'})
-            c_fax_value = []
-            for c_fax in c_faxs:
-                if c_fax:
-                    c_fax_value.append(c_fax['value'].strip())
-                else:
-                    c_fax_value.append('')     
-
-            upInfo_data = {
-                'sess_id': self.sess_id,
-                'subaction': 'kc2_customer_data_update',
-                'c_id': self.c_id,
-                'c_org': '',
-                'c_ustid[]': ['', ''],
-                'c_att': c_att,
-                'c_street': c_street,
-                'c_streetno': c_streetno,
-                'c_postal': c_postal,
-                'c_city': c_city,
-                'c_country': c_country,
-                'c_birthday[]': c_birthday_value,
-                'c_phone_country_prefix': c_phone_country_prefix,
-                'c_phone[]': c_phone_value,
-                'c_phone_password': c_phone_password,
-                'c_fax_country_prefix': c_fax_country_prefix,
-                'c_fax[]': c_fax_value,
-                'c_tac_date': c_tac_date,
-                'c_website': c_website,
-                'c_firstcontact': c_firstcontact,
-                'c_emailabo_contract': c_emailabo_contract,
-                'c_emailabo_products': c_emailabo_products,
-                'c_forumnick': c_forumnick,
-                'c_hrno': c_hrno,
-                'c_hrcourt': c_hrcourt,
-                'c_taxid': c_taxid,
-                'c_identifier': c_identifier,
-                'c_birthplace': c_birthplace,
-                'c_country_of_birth': c_country_of_birth
-            }
-
-            url = f"https://support.euserv.com/index.iphp"
-            logger.info(f"提交保存用户信息...")
-            response = self.session.post(url=url, headers=headers, data=upInfo_data)
-            response.raise_for_status()
-
-            if 'customer data has been changed' in response.text:
-                logger.info(f"保存用户信息成功")
-            else:
-                logger.info(f"保存用户信息失败，接口返回response={response.text}")
-
-        except Exception as e:
-            logger.error(f"❌ 更新用户信息异常: {e}", exc_info=True)
-            return False
-
-
-    def get_servers(self) -> Dict[str, Tuple[bool, str]]:
-        """获取服务器列表"""
-        logger.info(f"正在获取账号 {self.config.email} 的服务器列表...")
-        
-        if not self.sess_id:
-            logger.error("❌ 未登录")
-            return {}
-        
-        url = f"https://support.euserv.com/index.iphp?sess_id={self.sess_id}"
-        headers = {'user-agent': USER_AGENT, 'origin': 'https://www.euserv.com'}
-        
-        try:
-            detail_response = self.session.get(url=url, headers=headers)
-            detail_response.raise_for_status()
-
-            soup = BeautifulSoup(detail_response.text, 'html.parser')
-            servers = {}
-
-            selector = '#kc2_order_customer_orders_tab_content_1 .kc2_order_table.kc2_content_table tr, #kc2_order_customer_orders_tab_content_2 .kc2_order_table.kc2_content_table tr'
-            for tr in soup.select(selector):
-                server_id = tr.select('.td-z1-sp1-kc')
-                if len(server_id) != 1:
-                    continue
-                
-                action_containers = tr.select('.td-z1-sp2-kc .kc2_order_action_container')
-                if not action_containers:
-                    continue
-                    
-                action_text = action_containers[0].get_text()
-                logger.debug(f"续期信息: {action_text}")
-
-                can_renew = action_text.find("Contract extension possible from") == -1
-                can_renew_date = ""
-                
-                if not can_renew:
-                    date_pattern = r'\b\d{4}-\d{2}-\d{2}\b'
-                    match = re.search(date_pattern, action_text)
-                    if match:
-                        can_renew_date = match.group(0)
-                        can_renew = datetime.today().date() >= datetime.strptime(can_renew_date, "%Y-%m-%d").date()
-
-                server_id_text = server_id[0].get_text().strip()
-                servers[server_id_text] = (can_renew, can_renew_date)
-            
-            logger.info(f"✅ 账号 {self.config.email} 找到 {len(servers)} 台服务器")
-            return servers
-            
-        except Exception as e:
-            logger.error(f"❌ 获取服务器列表失败: {e}", exc_info=True)
-            return {}
-    
-    def renew_server(self, order_id: str) -> bool:
-        """续期服务器"""
-        logger.info(f"正在续期服务器 {order_id}...")
-        
-        url = "https://support.euserv.com/index.iphp"
-        headers = {
-            'user-agent': USER_AGENT,
-            'Host': 'support.euserv.com',
-            'origin': 'https://support.euserv.com',
-            'Referer': 'https://support.euserv.com/index.iphp'
-        }
-        
-        try:
-            # 步骤1: 选择订单
-            logger.debug("步骤1: 选择订单...")
-            data = {
-                'Submit': 'Extend contract',
-                'sess_id': self.sess_id,
-                'ord_no': order_id,
-                'subaction': 'choose_order',
-                'show_contract_extension': '1',
-                'choose_order_subaction': 'show_contract_details'
-            }
-            resp1 = self.session.post(url, headers=headers, data=data)
-            resp1.raise_for_status()
-            
-            # 步骤2: 触发发送 PIN
-            logger.debug("步骤2: 触发发送 PIN...")
-            data = {
-                'sess_id': self.sess_id,
-                'subaction': 'show_kc2_security_password_dialog',
-                'prefix': 'kc2_customer_contract_details_extend_contract_',
-                'type': '1'
-            }
-            resp2 = self.session.post(url, headers=headers, data=data)
-            resp2.raise_for_status()
-            
-            # 步骤3: 获取 PIN
-            logger.debug("步骤3: 等待并获取 PIN 码...")
-            time.sleep(3)
-            pin = get_euserv_pin(
-                self.config.email,
-                self.config.email_password,
-                self.config.imap_server
-            )
-            
-            if not pin:
-                logger.error(f"❌ 获取续期 PIN 码失败")
-                return False
-        
-            # 步骤4: 验证 PIN 获取 token
-            logger.debug("步骤4: 验证 PIN 获取 token...")
-            data = {
-                'sess_id': self.sess_id,
-                'auth': pin,
-                'subaction': 'kc2_security_password_get_token',
-                'prefix': 'kc2_customer_contract_details_extend_contract_',
-                'type': '1',
-                'ident': 'kc2_customer_contract_details_extend_contract_' + order_id
-            }
-            
-            resp3 = self.session.post(url, headers=headers, data=data)
-            resp3.raise_for_status()
-
-            result = json.loads(resp3.text)
-            if result.get('rs') != 'success':
-                logger.error(f"❌ 获取 token 失败: {result.get('rs', 'unknown')}")
-                if 'error' in result:
-                    logger.error(f"错误信息: {result['error']}")
-                return False
-            
-            token = result['token']['value']
-            logger.debug(f"✅ 获取到 token: {token[:20]}...")
-            time.sleep(3)
-
-            # 步骤5: 提交续期请求
-            logger.debug("步骤5: 提交续期请求...")
-            data = {
-                'sess_id': self.sess_id,
-                'ord_id': order_id,
-                'subaction': 'kc2_customer_contract_details_extend_contract_term',
-                'auth': token
-            }
-      
-            resp4 = self.session.post(url, headers=headers, data=data)
-            resp4.raise_for_status()
-            time.sleep(3)
-            
-            logger.info(f"✅ 服务器 {order_id} 续期成功")
-            return True
-            
-        except json.JSONDecodeError as e:
-            logger.error(f"❌ JSON 解析失败: {e}", exc_info=True)
-            return False
-        except Exception as e:
-            logger.error(f"❌ 服务器 {order_id} 续期失败: {e}", exc_info=True)
-            return False
-
-
-def send_telegram(message: str, config: GlobalConfig):
-    """发送 Telegram 通知"""
-    if not config.telegram_bot_token or not config.telegram_chat_id:
-        logger.warning("⚠️ 未配置 Telegram，跳过通知")
-        return
-    
-    url = f"https://api.telegram.org/bot{config.telegram_bot_token}/sendMessage"
-    data = {
-        "chat_id": config.telegram_chat_id,
-        "text": message,
-        "parse_mode": "HTML"
-    }
-    
-    try:
-        response = requests.post(url, json=data, timeout=10)
-        if response.status_code == 200:
-            logger.info("✅ Telegram 通知发送成功")
-        else:
-            logger.error(f"❌ Telegram 通知失败: {response.status_code}")
-    except Exception as e:
-        logger.error(f"❌ Telegram 异常: {e}", exc_info=True)
-
-
-def process_account(account_config: AccountConfig, global_config: GlobalConfig) -> Dict:
-    """处理单个账号的续期任务"""
-    result = {
-        'email': account_config.email,
-        'success': False,
-        'servers': {},
-        'renew_results': [],
-        'error': None
-    }
-    
-    try:
-        euserv = EUserv(account_config)
-        
-        # 登录（最多重试）
-        login_success = False
-        for attempt in range(global_config.max_login_retries):
-            if attempt > 0:
-                logger.info(f"账号 {account_config.email} 第 {attempt + 1} 次登录尝试...")
-                time.sleep(5)
-            
-            if euserv.login():
-                login_success = True
-                break
-        
-        if not login_success:
-            result['error'] = "登录失败"
-            return result
-        
-        # 更新用户信息
-        euserv.update_info()
-
-        # 获取服务器列表
-        servers = euserv.get_servers()
-        result['servers'] = servers
-        
-        if not servers:
-            result['error'] = "未找到任何服务器"
-            result['success'] = True  # 登录成功，只是没有服务器
-            return result
-        
-        # 检查并续期
-        for order_id, (can_renew, can_renew_date) in servers.items():
-            logger.info(f"检查服务器: {order_id}")
-            if can_renew:
-                logger.info(f"⏰ 服务器 {order_id} 可以续期")
-                if euserv.renew_server(order_id):
-                    result['renew_results'].append({
-                        'order_id': order_id,
-                        'success': True,
-                        'message': f"✅ 服务器 {order_id} 续期成功"
-                    })
-                else:
-                    result['renew_results'].append({
-                        'order_id': order_id,
-                        'success': False,
-                        'message': f"❌ 服务器 {order_id} 续期失败"
-                    })
-            else:
-                logger.info(f"✓ 服务器 {order_id} 暂不需要续期（可续期日期: {can_renew_date}）")
-        
-        result['success'] = True
-        
-    except Exception as e:
-        logger.error(f"处理账号 {account_config.email} 时发生异常: {e}", exc_info=True)
-        result['error'] = str(e)
-    
-    return result
-
-
-def main():
-    """主函数"""
-    logger.info("=" * 60)
-    logger.info("EUserv 多账号自动续期脚本（多线程版本）")
-    logger.info(f"执行时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    logger.info(f"配置账号数: {len(ACCOUNTS)}")
-    logger.info(f"最大并发线程: {GLOBAL_CONFIG.max_workers}")
-    logger.info("=" * 60)
-    
-    if not ACCOUNTS:
-        logger.error("❌ 未配置任何账号")
-        sys.exit(1)
-    
-    # 使用线程池处理多个账号
-    all_results = []
-    with ThreadPoolExecutor(max_workers=GLOBAL_CONFIG.max_workers) as executor:
-        # 提交所有任务
-        future_to_account = {
-            executor.submit(process_account, account, GLOBAL_CONFIG): account 
-            for account in ACCOUNTS
-        }
-        
-        # 等待任务完成
-        for future in as_completed(future_to_account):
-            account = future_to_account[future]
-            try:
-                result = future.result()
-                all_results.append(result)
-            except Exception as e:
-                logger.error(f"处理账号 {account.email} 时发生未预期的异常: {e}", exc_info=True)
-                all_results.append({
-                    'email': account.email,
-                    'success': False,
-                    'error': f"未预期的异常: {str(e)}"
-                })
-    
-    # 生成汇总报告
-    logger.info("\n" + "=" * 60)
-    logger.info("处理结果汇总")
-    logger.info("=" * 60)
-    
-    message_parts = [f"<b>🔄 EUserv 多账号续期报告</b>\n"]
-    message_parts.append(f"时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-    message_parts.append(f"处理账号数: {len(all_results)}\n")
-    
-    for result in all_results:
-        email = result['email']
-        logger.info(f"\n账号: {email}")
-        message_parts.append(f"\n<b>📧 账号: {email}</b>")
-        
-        if not result['success']:
-            error_msg = result.get('error', '未知错误')
-            logger.error(f"  ❌ 处理失败: {error_msg}")
-            message_parts.append(f"  ❌ 处理失败: {error_msg}")
-            continue
-        
-        servers = result.get('servers', {})
-        logger.info(f"  服务器数量: {len(servers)}")
-        
-        renew_results = result.get('renew_results', [])
-        if renew_results:
-            logger.info(f"  续期操作: {len(renew_results)} 个")
-            for renew_result in renew_results:
-                logger.info(f"    {renew_result['message']}")
-                message_parts.append(f"  {renew_result['message']}")
-        else:
-            logger.info("  ✓ 所有服务器均无需续期")
-            message_parts.append("  ✓ 所有服务器均无需续期")
-            for order_id, (can_renew, can_renew_date) in servers.items():
-                if can_renew_date:
-                    message_parts.append(f"    订单 {order_id}: 可续期日期 {can_renew_date}")
-    
-    # 发送 Telegram 通知
-    message = "\n".join(message_parts)
-    send_telegram(message, GLOBAL_CONFIG)
-    
-    logger.info("\n" + "=" * 60)
-    logger.info("执行完成")
-    logger.info("=" * 60)
-
-
-if __name__ == "__main__":
-    main()
